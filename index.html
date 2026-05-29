@@ -89,7 +89,58 @@
         </tbody>
     </table>
 </div>
+<script>
+    let employees = [];
 
+    function addEmployee() {
+        let id = document.getElementById("empId").value;
+        let name = document.getElementById("empName").value;
+        let dept = document.getElementById("empDept").value;
+
+        if (id === "" || name === "" || dept === "") {
+            alert("Please fill all fields");
+            return;
+        }
+
+        let employee = {
+            id: id,
+            name: name,
+            dept: dept
+        };
+
+        employees.push(employee);
+        displayEmployees();
+
+        document.getElementById("empId").value = "";
+        document.getElementById("empName").value = "";
+        document.getElementById("empDept").value = "";
+    }
+
+    function displayEmployees() {
+        let table = document.getElementById("employeeTable");
+        table.innerHTML = "";
+
+        employees.forEach((emp, index) => {
+            table.innerHTML += `
+                <tr>
+                    <td>${emp.id}</td>
+                    <td>${emp.name}</td>
+                    <td>${emp.dept}</td>
+                    <td>
+                        <button class="delete-btn" onclick="deleteEmployee(${index})">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function deleteEmployee(index) {
+        employees.splice(index, 1);
+        displayEmployees();
+    }
+</script>
 
 
 </body>
