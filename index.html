@@ -4,142 +4,270 @@
     <title>Employee Management System</title>
     <style>
         body {
-            font-family: Arial;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
             margin: 40px;
-            background: #f4f4f4;
+            background: #f4f6f8;
+            color: #222;
         }
 
         h1 {
-            color: #333;
+            color: #1f2937;
+            margin-bottom: 12px;
         }
 
         .container {
             background: white;
-            padding: 20px;
+            padding: 28px;
             border-radius: 10px;
-            width: 500px;
-            margin: auto;
-            box-shadow: 0px 0px 10px gray;
+            max-width: 640px;
+            margin: 20px auto;
+            box-shadow: 0 6px 18px rgba(31,41,55,0.08);
         }
 
         input {
-            width: 95%;
-            padding: 10px;
-            margin: 8px 0;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: #fff;
+            width: 100%;
+            box-sizing: border-box;
         }
 
-        button {
-            padding: 10px 15px;
-            background: blue;
-            color: white;
+        .btn {
+            padding: 8px 12px;
+            border-radius: 6px;
             border: none;
             cursor: pointer;
-            border-radius: 5px;
+            font-weight: 600;
+            display: inline-block;
         }
 
-        button:hover {
-            background: darkblue;
+        .btn.primary {
+            background: #1e40af;
+            color: white;
+        }
+
+        .btn.secondary {
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid #e5e7eb;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         table {
             width: 100%;
-            margin-top: 20px;
+            margin-top: 18px;
             border-collapse: collapse;
+            background: white;
         }
 
         table, th, td {
-            border: 1px solid gray;
+            border: 1px solid #e6e7eb;
         }
 
         th, td {
-            padding: 10px;
-            text-align: center;
+            padding: 10px 12px;
+            text-align: left;
         }
 
         .delete-btn {
-            background: red;
+            background: #dc2626;
+            color: white;
+            border-radius: 6px;
+            padding: 6px 10px;
+            border: none;
         }
 
-        .delete-btn:hover {
-            background: darkred;
-        }
+        .delete-btn:disabled { background:#fca5a5 }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Employee Management System</h1>
+        <h1>Student Management</h1>
 
-    <input type="text" id="empId" placeholder="Employee ID">
-    <input type="text" id="empName" placeholder="Employee Name">
-    <input type="text" id="empDept" placeholder="Department">
+        <div id="auth" style="margin-bottom:16px">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <input type="text" id="username" placeholder="Username or Email" style="flex:1;min-width:180px">
+                <input type="password" id="password" placeholder="Password" style="flex:1;min-width:180px">
+                <button class="btn primary" id="btnLogin" onclick="login()">Login</button>
+                <button class="btn secondary" id="btnRegister" onclick="register()">Register</button>
+                <button class="btn" id="btnLogout" onclick="logout()" style="display:none">Logout</button>
+            </div>
+            <div id="userInfo" style="margin-top:8px;color:#444"></div>
+            <div id="status" style="margin-top:6px;color:green"></div>
+        </div>
 
-    <button onclick="addEmployee()">Add Employee</button>
+        <div style="margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center">
+            <input type="text" id="firstName" placeholder="First name">
+            <input type="text" id="lastName" placeholder="Last name">
+            <input type="email" id="email" placeholder="Email">
+            <input type="text" id="studentId" placeholder="Student ID">
+        </div>
+        <div style="margin-bottom:16px">
+            <button class="btn primary" id="btnCreate" onclick="createStudent()">Create Student</button>
+        </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Department</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody id="employeeTable">
-        </tbody>
-    </table>
+        <table>
+                <thead>
+                        <tr>
+                                <th>First</th>
+                                <th>Last</th>
+                                <th>Email</th>
+                                <th>Student ID</th>
+                                <th>Action</th>
+                        </tr>
+                </thead>
+                <tbody id="studentTable">
+                </tbody>
+        </table>
 </div>
 <script>
-    let employees = [];
+        const API_ROOT = '/api';
 
-    function addEmployee() {
-        let id = document.getElementById("empId").value;
-        let name = document.getElementById("empName").value;
-        let dept = document.getElementById("empDept").value;
-
-        if (id === "" || name === "" || dept === "") {
-            alert("Please fill all fields");
-            return;
+        function setStatus(msg, ok = true) {
+            const s = document.getElementById('status');
+            s.textContent = msg;
+            s.style.color = ok ? 'green' : 'red';
+            if (msg) setTimeout(() => { s.textContent = ''; }, 4000);
         }
 
-        let employee = {
-            id: id,
-            name: name,
-            dept: dept
-        };
+        function getToken() {
+            return localStorage.getItem('token');
+        }
 
-        employees.push(employee);
-        displayEmployees();
+        function updateAuthUI() {
+            const token = getToken();
+            const btnLogout = document.getElementById('btnLogout');
+            const userInfo = document.getElementById('userInfo');
+            const btnCreate = document.getElementById('btnCreate');
+            if (token) {
+                btnLogout.style.display = 'inline-block';
+                btnCreate.disabled = false;
+                // try to parse token for username
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    userInfo.textContent = `Signed in — role: ${payload.role || 'user'}`;
+                } catch (e) { userInfo.textContent = 'Signed in'; }
+            } else {
+                btnLogout.style.display = 'none';
+                btnCreate.disabled = true;
+                userInfo.textContent = 'Not signed in';
+            }
+            // update delete buttons
+            document.querySelectorAll('.delete-btn').forEach(b => {
+                b.disabled = !token;
+            });
+        }
 
-        document.getElementById("empId").value = "";
-        document.getElementById("empName").value = "";
-        document.getElementById("empDept").value = "";
-    }
+        async function login() {
+            try {
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value;
+                if (!username || !password) { setStatus('Enter username and password', false); return; }
+                const res = await fetch(`${API_ROOT}/auth/login`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (!res.ok) { setStatus('Login failed', false); return; }
+                const data = await res.json();
+                localStorage.setItem('token', data.token);
+                setStatus('Logged in');
+                updateAuthUI();
+            } catch (err) { setStatus('Login error', false); }
+        }
 
-    function displayEmployees() {
-        let table = document.getElementById("employeeTable");
-        table.innerHTML = "";
+        async function register() {
+            try {
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value;
+                if (!username || !password) { setStatus('Enter username and password', false); return; }
+                const res = await fetch(`${API_ROOT}/auth/register`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email: username, password })
+                });
+                if (!res.ok) { const t = await res.json().catch(()=>({})); setStatus(t.message || 'Register failed', false); return; }
+                setStatus('Registered — now login');
+            } catch (err) { setStatus('Register error', false); }
+        }
 
-        employees.forEach((emp, index) => {
-            table.innerHTML += `
-                <tr>
-                    <td>${emp.id}</td>
-                    <td>${emp.name}</td>
-                    <td>${emp.dept}</td>
-                    <td>
-                        <button class="delete-btn" onclick="deleteEmployee(${index})">
-                            Delete
-                        </button>
-                    </td>
-                </tr>
-            `;
-        });
-    }
+        function logout() {
+            localStorage.removeItem('token');
+            setStatus('Logged out');
+            updateAuthUI();
+        }
 
-    function deleteEmployee(index) {
-        employees.splice(index, 1);
-        displayEmployees();
-    }
+        function validEmail(e){ return /\S+@\S+\.\S+/.test(e); }
+
+        async function loadStudents() {
+            try {
+                const res = await fetch(`${API_ROOT}/students`);
+                if (!res.ok) { setStatus('Failed to load students', false); return; }
+                const list = await res.json();
+                const table = document.getElementById('studentTable');
+                table.innerHTML = '';
+                list.forEach(s => {
+                    const tr = document.createElement('tr');
+                    const delId = s._id;
+                    tr.innerHTML = `
+                        <td>${escapeHtml(s.firstName)}</td>
+                        <td>${escapeHtml(s.lastName)}</td>
+                        <td>${escapeHtml(s.email)}</td>
+                        <td>${escapeHtml(s.studentId)}</td>
+                        <td><button class="delete-btn" onclick="deleteStudent('${delId}')">Delete</button></td>
+                    `;
+                    table.appendChild(tr);
+                });
+                updateAuthUI();
+            } catch (err) {
+                setStatus('Failed to load students', false);
+            }
+        }
+
+        function escapeHtml(str){ if(!str) return ''; return String(str).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+        async function createStudent() {
+            try {
+                const firstName = document.getElementById('firstName').value.trim();
+                const lastName = document.getElementById('lastName').value.trim();
+                const email = document.getElementById('email').value.trim();
+                const studentId = document.getElementById('studentId').value.trim();
+                if (!firstName || !lastName || !email || !studentId) { setStatus('Fill all student fields', false); return; }
+                if (!validEmail(email)) { setStatus('Invalid email', false); return; }
+                const token = getToken(); if (!token) { setStatus('Please login to create', false); return; }
+                const res = await fetch(`${API_ROOT}/students`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ firstName, lastName, email, studentId })
+                });
+                if (!res.ok) { const t = await res.json().catch(()=>({})); setStatus(t.message || 'Create failed', false); return; }
+                document.getElementById('firstName').value = '';
+                document.getElementById('lastName').value = '';
+                document.getElementById('email').value = '';
+                document.getElementById('studentId').value = '';
+                setStatus('Student created');
+                loadStudents();
+            } catch (err) { setStatus('Create error', false); }
+        }
+
+        async function deleteStudent(id) {
+            try {
+                const token = getToken(); if (!token) { setStatus('Please login to delete', false); return; }
+                const res = await fetch(`${API_ROOT}/students/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+                if (res.status === 204) { setStatus('Deleted'); loadStudents(); } else { const t = await res.json().catch(()=>({})); setStatus(t.message || 'Delete failed', false); }
+            } catch (err) { setStatus('Delete error', false); }
+        }
+
+        // init
+        (function(){
+            // disable create until login
+            document.getElementById('btnCreate').disabled = true;
+            if (getToken()) updateAuthUI();
+            loadStudents();
+        })();
 </script>
 
 
